@@ -803,3 +803,525 @@ Giải thích luồng hoạt động :
 - relay nhận body, extract_flag() tìm bctf{...} và in [+] FLAG: bctf{...} vào console
 
 `FLAG : bctf{a_new_dog_learns_old_tricks}`
+
+
+# III. RE
+## Lonely Bot
+
+Bài này tôi update sau nên là cũng chả có Descripton của bài :vvvv
+
+Bài cho 1 file tên `lonely_bot`
+
+Bước đầu ta cứ cho vào DIE và thực thi thử xem hành vi của nó như nào
+
+<img src="./image/23.png">
+
+1 file ELF bình thường
+
+```bash
+(base) ┌──(hieesu19㉿DESKTOP-BFB0MA5)-[/mnt/d/CTF/BuckeyeCTF/re/bot]
+└─$ ./lonely_bot
+What's your favorite number? :D
+123
+Ah, a fan of "123"...
+Goodbye.
+
+(base) ┌──(hieesu19㉿DESKTOP-BFB0MA5)-[/mnt/d/CTF/BuckeyeCTF/re/bot]
+└─$ ./lonely_bot
+What's your favorite number? :D
+0xaaa
+Ah, a fan of "0xaaa"...
+Goodbye.
+```
+
+Khi cho vào IDA để decompiler thì đây là hàm main của nó 
+```c
+__int64 __fastcall main(int a1, char **a2, char **a3)
+{
+  unsigned __int64 i; // [rsp+0h] [rbp-8h] BYREF
+
+  for ( i = 0; i <= 0x9E; ++i )
+    *(&i + i + 2) = (unsigned __int64)*(&off_5020 + i);
+  return 0;
+}
+```
+Trông khá ngắn phải không? 
+- trong decompiler, biến i là local, kiểu `unsigned __int64` tức 8 bytes và &i là địa chỉ của biến i (tại rbp-8h)
+- `&i + i + 2` khi bắt đầu với i = 0 thì sẽ ở địa chỉ `rbp + 8`, mà đó chính là saved RIP (return address) và khi i++ thì nó dịch lên 8 byte, hay dịch QWORD trên stack
+
+=> nó đang đè return address và các slot sau nó bằng dữ liệu từ `&off_5020` . Đây chính là dấu hiệu nhận biết của `ROP` , hàm main chỉ đơn giản copy 1 bảng QWORD lên stack rồi thoát, khi ret thì mới bắt đầu thực sự chạy chương trình
+
+Ta sẽ xem 0x9E QWORD từ offest `&off_5020`, tức là đến offset 5020 + (8 * 9E) = 5510, ở đây tôi có chỉnh sửa 1 chút cho dễ nhìn
+
+<details>
+<summary><b>.data</b></summary>
+
+.data:0000000000005020 off_5020        dq offset sub_212F      ; DATA XREF: main+35↑o
+.data:0000000000005028                 dq offset unk_5560
+.data:0000000000005030                 dq offset sub_212D
+.data:0000000000005038                 dq 7920732774616857h
+.data:0000000000005040                 dq offset sub_2131
+.data:0000000000005048                 dq offset sub_212F
+.data:0000000000005050                 dq offset unk_5568
+.data:0000000000005058                 dq offset sub_212D
+.data:0000000000005060                 dq 6F7661662072756Fh
+.data:0000000000005068                 dq offset sub_2131
+.data:0000000000005070                 dq offset sub_212F
+.data:0000000000005078                 dq offset unk_5570
+.data:0000000000005080                 dq offset sub_212D
+.data:0000000000005088                 dq 6D756E2065746972h
+.data:0000000000005090                 dq offset sub_2131
+.data:0000000000005098                 dq offset sub_212F
+.data:00000000000050A0                 dq offset unk_5578
+.data:00000000000050A8                 dq offset sub_212D
+.data:00000000000050B0                 dq 443A203F726562h
+.data:00000000000050B8                 dq offset sub_2131
+.data:00000000000050C0                 dq offset sub_2129
+.data:00000000000050C8                 dq offset unk_5560
+.data:00000000000050D0                 dq offset sub_212F
+.data:00000000000050D8                 dq 0
+.data:00000000000050E0                 dq offset nullsub_1
+.data:00000000000050E8                 dq offset puts
+.data:00000000000050F0                 dq offset sub_2129
+.data:00000000000050F8                 dq 0
+.data:0000000000005100                 dq offset sub_212B
+.data:0000000000005108                 dq offset unk_5540
+.data:0000000000005110                 dq offset sub_212D
+.data:0000000000005118                 dq 10h
+.data:0000000000005120                 dq offset read
+.data:0000000000005128                 dq offset sub_2129
+.data:0000000000005130                 dq offset unk_5540
+.data:0000000000005138                 dq offset sub_212B
+.data:0000000000005140                 dq 0Ah
+.data:0000000000005148                 dq offset strchr
+.data:0000000000005150                 dq offset sub_212D
+.data:0000000000005158                 dq 0
+.data:0000000000005160                 dq offset byte_2139+4
+.data:0000000000005168                 dq offset sub_2131
+.data:0000000000005170                 dq offset nullsub_1
+.data:0000000000005178                 dq offset sub_212F
+.data:0000000000005180                 dq offset unk_5560
+.data:0000000000005188                 dq offset sub_212D
+.data:0000000000005190                 dq 5CE8A297FA50CC11h
+.data:0000000000005198                 dq offset sub_2131
+.data:00000000000051A0                 dq offset sub_212F
+.data:00000000000051A8                 dq offset unk_5540
+.data:00000000000051B0                 dq offset sub_212B
+.data:00000000000051B8                 dq 25BCCCA48C35FD54h
+.data:00000000000051C0                 dq offset byte_2139
+.data:00000000000051C8                 dq offset sub_212F
+.data:00000000000051D0                 dq offset unk_5568
+.data:00000000000051D8                 dq offset sub_212D
+.data:00000000000051E0                 dq 6E8EEA35727Dh
+.data:00000000000051E8                 dq offset sub_2131
+.data:00000000000051F0                 dq offset sub_212F
+.data:00000000000051F8                 dq offset unk_5548
+.data:0000000000005200                 dq offset sub_212B
+.data:0000000000005208                 dq 20EB9C06215Dh
+.data:0000000000005210                 dq offset byte_2139
+.data:0000000000005218                 dq offset sub_2129
+.data:0000000000005220                 dq offset unk_5560
+.data:0000000000005228                 dq offset sub_212B
+.data:0000000000005230                 dq offset unk_5540
+.data:0000000000005238                 dq offset strcmp
+.data:0000000000005240                 dq offset sub_2147
+.data:0000000000005248                 dq offset sub_212F
+.data:0000000000005250                 dq offset unk_5540
+.data:0000000000005258                 dq offset sub_212B
+.data:0000000000005260                 dq 25BCCCA48C35FD54h
+.data:0000000000005268                 dq offset byte_2139
+.data:0000000000005270                 dq offset sub_212F
+.data:0000000000005278                 dq offset unk_5548
+.data:0000000000005280                 dq offset sub_212B
+.data:0000000000005288                 dq 20EB9C06215Dh
+.data:0000000000005290                 dq offset byte_2139
+.data:0000000000005298                 dq offset sub_212F
+.data:00000000000052A0                 dq offset unk_5560
+.data:00000000000052A8                 dq offset sub_212D
+.data:00000000000052B0                 dq 61662061202C6841h
+.data:00000000000052B8                 dq offset sub_2131
+.data:00000000000052C0                 dq offset sub_212F
+.data:00000000000052C8                 dq offset unk_5568
+.data:00000000000052D0                 dq offset sub_212D
+.data:00000000000052D8                 dq 73252220666F206Eh
+.data:00000000000052E0                 dq offset sub_2131
+.data:00000000000052E8                 dq offset sub_212F
+.data:00000000000052F0                 dq offset unk_5570
+.data:00000000000052F8                 dq offset sub_212D
+.data:0000000000005300                 dq 0A2E2E2E22h
+.data:0000000000005308                 dq offset sub_2131
+.data:0000000000005310                 dq offset sub_2129
+.data:0000000000005318                 dq offset unk_5560
+.data:0000000000005320                 dq offset sub_212B
+.data:0000000000005328                 dq offset unk_5540
+.data:0000000000005330                 dq offset sub_212F
+.data:0000000000005338                 dq 0
+.data:0000000000005340                 dq offset nullsub_1
+.data:0000000000005348                 dq offset printf
+.data:0000000000005350                 dq offset sub_2129
+.data:0000000000005358                 dq 1
+.data:0000000000005360                 dq offset sleep
+.data:0000000000005368                 dq offset sub_212F
+.data:0000000000005370                 dq offset unk_5560
+.data:0000000000005378                 dq offset sub_212D
+.data:0000000000005380                 dq 2E657962646F6F47h
+.data:0000000000005388                 dq offset sub_2131
+.data:0000000000005390                 dq offset sub_212F
+.data:0000000000005398                 dq offset unk_5568
+.data:00000000000053A0                 dq offset sub_212D
+.data:00000000000053A8                 dq 0Ah
+.data:00000000000053B0                 dq offset sub_2131
+.data:00000000000053B8                 dq offset sub_2129
+.data:00000000000053C0                 dq offset unk_5560
+.data:00000000000053C8                 dq offset printf
+.data:00000000000053D0                 dq offset sub_2129
+.data:00000000000053D8                 dq 0
+.data:00000000000053E0                 dq offset exit
+.data:00000000000053E8                 dq offset sub_212B
+.data:00000000000053F0                 dq offset unk_5540
+.data:00000000000053F8                 dq offset sub_2135
+.data:0000000000005400                 dq offset sub_212F
+.data:0000000000005408                 dq offset unk_5560
+.data:0000000000005410                 dq offset sub_212D
+.data:0000000000005418                 dq 6880F6EC9C24AF73h
+.data:0000000000005420                 dq offset sub_2131
+.data:0000000000005428                 dq offset byte_2139
+.data:0000000000005430                 dq offset sub_212F
+.data:0000000000005438                 dq offset unk_5568
+.data:0000000000005440                 dq offset sub_212D
+.data:0000000000005448                 dq 1FD9CCC89B0FF965h
+.data:0000000000005450                 dq offset sub_2131
+.data:0000000000005458                 dq offset byte_2139
+.data:0000000000005460                 dq offset sub_212F
+.data:0000000000005468                 dq offset unk_5570
+.data:0000000000005470                 dq offset sub_212D
+.data:0000000000005478                 dq 2EDBE0DA8F1E9322h
+.data:0000000000005480                 dq offset sub_2131
+.data:0000000000005488                 dq offset byte_2139
+.data:0000000000005490                 dq offset sub_212F
+.data:0000000000005498                 dq offset unk_5578
+.data:00000000000054A0                 dq offset sub_212D
+.data:00000000000054A8                 dq 6Ch
+.data:00000000000054B0                 dq offset sub_2131
+.data:00000000000054B8                 dq offset sub_212B
+.data:00000000000054C0                 dq 11h
+.data:00000000000054C8                 dq offset byte_2139
+.data:00000000000054D0                 dq offset sub_2129
+.data:00000000000054D8                 dq offset unk_5560
+.data:00000000000054E0                 dq offset sub_212F
+.data:00000000000054E8                 dq 0
+.data:00000000000054F0                 dq offset nullsub_1
+.data:00000000000054F8                 dq offset puts
+.data:0000000000005500                 dq offset sub_2129
+.data:0000000000005508                 dq 0
+.data:0000000000005510                 dq offset exit
+.data:0000000000005510 _data           ends
+.data:0000000000005510
+
+</details>
+
+Giờ ta sẽ sử dụng `ROPgadget` để xem nhanh instruction của từng gadget và offset có trong file
+
+```code
+└─$ ROPgadget --binary lonely_bot
+Gadgets information
+============================================================
+0x0000000000002133 : adc bl, al ; mov rsi, qword ptr [rsi] ; ret
+0x0000000000002141 : add al, 0x48 ; add esp, 8 ; ret
+0x000000000000211b : add byte ptr [rax], 0 ; add byte ptr [rax], al ; endbr64 ; jmp 0x20a0
+0x0000000000002093 : add byte ptr [rax], 0 ; add byte ptr [rax], al ; ret
+0x000000000000211c : add byte ptr [rax], al ; add byte ptr [rax], al ; endbr64 ; jmp 0x20a0
+0x000000000000222c : add byte ptr [rax], al ; add byte ptr [rax], al ; endbr64 ; ret
+0x0000000000002160 : add byte ptr [rax], al ; add byte ptr [rax], al ; jmp 0x21a3
+0x00000000000021b0 : add byte ptr [rax], al ; add byte ptr [rax], al ; pop rbp ; ret
+0x0000000000002094 : add byte ptr [rax], al ; add byte ptr [rax], al ; ret
+0x0000000000002110 : add byte ptr [rax], al ; add dword ptr [rbp - 0x3d], ebx ; nop dword ptr [rax] ; ret
+0x000000000000211e : add byte ptr [rax], al ; endbr64 ; jmp 0x20a0
+0x000000000000222e : add byte ptr [rax], al ; endbr64 ; ret
+0x0000000000002162 : add byte ptr [rax], al ; jmp 0x21a3
+0x00000000000021b2 : add byte ptr [rax], al ; pop rbp ; ret
+0x0000000000002096 : add byte ptr [rax], al ; ret
+0x000000000000200d : add byte ptr [rax], al ; test rax, rax ; je 0x2016 ; call rax
+0x0000000000002088 : add byte ptr [rax], al ; test rax, rax ; je 0x2098 ; jmp rax
+0x00000000000020c9 : add byte ptr [rax], al ; test rax, rax ; je 0x20d8 ; jmp rax
+0x00000000000020d5 : add byte ptr [rax], r8b ; ret
+0x0000000000002111 : add byte ptr [rcx], al ; pop rbp ; ret
+0x00000000000021ac : add byte ptr [rsi - 0x49], dh ; mov eax, 0 ; pop rbp ; ret
+0x0000000000002112 : add dword ptr [rbp - 0x3d], ebx ; nop dword ptr [rax] ; ret
+0x000000000000214d : add esp, 0x1a0 ; ret
+0x0000000000002017 : add esp, 8 ; ret
+0x000000000000214c : add rsp, 0x1a0 ; ret
+0x0000000000002016 : add rsp, 8 ; ret
+0x00000000000020c7 : and eax, 0x4800002f ; test eax, eax ; je 0x20d8 ; jmp rax
+0x0000000000002128 : call ptr [rdi - 0x3d]
+0x0000000000002014 : call rax
+0x000000000000215f : clc ; add byte ptr [rax], al ; add byte ptr [rax], al ; jmp 0x21a3
+0x000000000000214b : cli ; add rsp, 0x1a0 ; ret
+0x0000000000002123 : cli ; jmp 0x20a0
+0x0000000000002233 : cli ; ret
+0x000000000000223b : cli ; sub rsp, 8 ; add rsp, 8 ; ret
+0x0000000000002120 : endbr64 ; jmp 0x20a0
+0x0000000000002230 : endbr64 ; ret
+0x000000000000220c : fisttp word ptr [rax - 0x7d] ; ret
+0x000000000000200b : fldcw word ptr [rdi] ; add byte ptr [rax], al ; test rax, rax ; je 0x2016 ; call rax
+0x000000000000215b : in eax, 0x48 ; mov dword ptr [rbp - 8], 0 ; jmp 0x21a3
+0x00000000000021ad : jbe 0x2166 ; mov eax, 0 ; pop rbp ; ret
+0x0000000000002012 : je 0x2016 ; call rax
+0x000000000000208d : je 0x2098 ; jmp rax
+0x00000000000020ce : je 0x20d8 ; jmp rax
+0x0000000000002124 : jmp 0x20a0
+0x0000000000002164 : jmp 0x21a3
+0x000000000000208f : jmp rax
+0x000000000000214a : jne 0x2146 ; add rsp, 0x1a0 ; ret
+0x0000000000002140 : jne 0x2146 ; add rsp, 8 ; ret
+0x00000000000020d1 : loopne 0x2139 ; nop dword ptr [rax + rax] ; ret
+0x00000000000021ae : mov bh, 0xb8 ; add byte ptr [rax], al ; add byte ptr [rax], al ; pop rbp ; ret
+0x000000000000210c : mov byte ptr [rip + 0x340d], 1 ; pop rbp ; ret
+0x0000000000002132 : mov dword ptr [rax], edx ; ret
+0x000000000000215d : mov dword ptr [rbp - 8], 0 ; jmp 0x21a3
+0x00000000000021af : mov eax, 0 ; pop rbp ; ret
+0x0000000000002136 : mov esi, dword ptr [rsi] ; ret
+0x0000000000002131 : mov qword ptr [rax], rdx ; ret
+0x000000000000215c : mov qword ptr [rbp - 8], 0 ; jmp 0x21a3
+0x0000000000002135 : mov rsi, qword ptr [rsi] ; ret
+0x00000000000020d3 : nop dword ptr [rax + rax] ; ret
+0x0000000000002091 : nop dword ptr [rax] ; ret
+0x00000000000020d2 : nop word ptr [rax + rax] ; ret
+0x00000000000020cf : or bh, bh ; loopne 0x2139 ; nop dword ptr [rax + rax] ; ret
+0x000000000000210e : or eax, 0x1000034 ; pop rbp ; ret
+0x000000000000221c : pop r12 ; pop r13 ; pop r14 ; pop r15 ; ret
+0x000000000000221e : pop r13 ; pop r14 ; pop r15 ; ret
+0x0000000000002220 : pop r14 ; pop r15 ; ret
+0x0000000000002222 : pop r15 ; ret
+0x000000000000212f : pop rax ; ret
+0x000000000000221b : pop rbp ; pop r12 ; pop r13 ; pop r14 ; pop r15 ; ret
+0x000000000000221f : pop rbp ; pop r14 ; pop r15 ; ret
+0x0000000000002113 : pop rbp ; ret
+0x0000000000002129 : pop rdi ; ret
+0x000000000000212d : pop rdx ; ret
+0x0000000000002221 : pop rsi ; pop r15 ; ret
+0x000000000000212b : pop rsi ; ret
+0x000000000000221d : pop rsp ; pop r13 ; pop r14 ; pop r15 ; ret
+0x000000000000201a : ret
+0x0000000000002170 : ret 0x4802
+0x0000000000002180 : retf 0x8d48
+0x000000000000213f : sal byte ptr [rbp + 4], 0x48 ; add esp, 8 ; ret
+0x0000000000002011 : sal byte ptr [rdx + rax - 1], 0xd0 ; add rsp, 8 ; ret
+0x000000000000223d : sub esp, 8 ; add rsp, 8 ; ret
+0x000000000000223c : sub rsp, 8 ; add rsp, 8 ; ret
+0x0000000000002010 : test eax, eax ; je 0x2016 ; call rax
+0x000000000000208b : test eax, eax ; je 0x2098 ; jmp rax
+0x00000000000020cc : test eax, eax ; je 0x20d8 ; jmp rax
+0x000000000000213e : test eax, eax ; jne 0x2146 ; add rsp, 8 ; ret
+0x000000000000200f : test rax, rax ; je 0x2016 ; call rax
+0x000000000000208a : test rax, rax ; je 0x2098 ; jmp rax
+0x00000000000020cb : test rax, rax ; je 0x20d8 ; jmp rax
+0x000000000000213d : test rax, rax ; jne 0x2146 ; add rsp, 8 ; ret
+0x000000000000210f : xor al, 0 ; add byte ptr [rcx], al ; pop rbp ; ret
+0x000000000000213a : xor dword ptr [rax], esi ; ret
+0x0000000000002139 : xor qword ptr [rax], rsi ; ret
+
+Unique gadgets found: 94
+```
+
+Đến đây ta đã có đủ dữ kiện để map với `&off_5020`, có thể rename để xem cho dễ. Những vẫn còn một số gadget mà ROPgadget không bắt được do vài lý do thì ta cần phải xem chay tập lệnh của nó
+
+Có thể sử dụng chatgpt free để hỗ trợ đoạn xem logic này.
+
+- Đầu tiên là ghép từng 8 byte vào 1 để tạo string rồi gọi `puts()` để in ra câu hỏi
+- đọc input bằng `read()`
+- cắt newline bằng `strchr()`
+- tạo dữ liệu `expected` và `key` gồm expected0 và expeected1 ; key0 và key1
+- biến đổi input thành 2 QWORD là q0 và q1
+- XOR : q0 ^= key0 ; q1 ^= key1
+- So sánh :q0 == expected0 và q1 == expected1 thì đúng
+- If
+  - nhánh false : in ra msg fail và thoát
+  - nhánh true : dùng expected0 làm key, có 1 mảng QWORD enc_flag[3], chỉ cần xor từng cái với key là ra
+
+<details>
+<summary><b>Explain</b></summary>
+.data:0000000000005020 off_5020        dq offset sub_212F      	pop rax ; ret
+.data:0000000000005028                 dq offset unk_5560	RAX = 0x5560
+.data:0000000000005030                 dq offset sub_212D	pop rdx ; ret
+.data:0000000000005038                 dq 7920732774616857h	RDX = "What's y"
+.data:0000000000005040                 dq offset sub_2131	mov [rax], rdx ; ret	|| *(uint64_t*)0x5560 = "What's y"
+.data:0000000000005048                 dq offset sub_212F	pop rax
+.data:0000000000005050                 dq offset unk_5568	RAX = 0x5568
+.data:0000000000005058                 dq offset sub_212D	pop rdx
+.data:0000000000005060                 dq 6F7661662072756Fh	RDX = "our favo"
+.data:0000000000005068                 dq offset sub_2131	store	|| write "our favo" tại 0x5568
+.data:0000000000005070                 dq offset sub_212F	pop rax
+.data:0000000000005078                 dq offset unk_5570	RAX = 0x5570
+.data:0000000000005080                 dq offset sub_212D	pop rdx
+.data:0000000000005088                 dq 6D756E2065746972h	RDX = "rite num"
+.data:0000000000005090                 dq offset sub_2131	store	|| write "rite num" tại 0x5570
+.data:0000000000005098                 dq offset sub_212F	pop rax
+.data:00000000000050A0                 dq offset unk_5578	RAX = 0x5578
+.data:00000000000050A8                 dq offset sub_212D	pop rdx
+.data:00000000000050B0                 dq 443A203F726562h	RDX = "ber? :D\0" 
+.data:00000000000050B8                 dq offset sub_2131	store	|| write phần cuối tại 0x5578 => unk_5560 cos string prompt đầy đủ
+.data:00000000000050C0                 dq offset sub_2129	pop rdi; ret
+.data:00000000000050C8                 dq offset unk_5560	RDI = prompt
+.data:00000000000050D0                 dq offset sub_212F	pop rax; ret
+.data:00000000000050D8                 dq 0			RAX = 0
+.data:00000000000050E0                 dq offset nullsub_1	ret/stub (đệm alighment)
+.data:00000000000050E8                 dq offset puts		call puts(rdi) => in string
+.data:00000000000050F0                 dq offset sub_2129	pop rdi
+.data:00000000000050F8                 dq 0			rdi =0
+.data:0000000000005100                 dq offset sub_212B	pop rsi
+.data:0000000000005108                 dq offset unk_5540	rsi = buf
+.data:0000000000005110                 dq offset sub_212D	pop rdx
+.data:0000000000005118                 dq 10h			rdx = 16
+.data:0000000000005120                 dq offset read		call read(0,buf,16)
+.data:0000000000005128                 dq offset sub_2129	pop rdi
+.data:0000000000005130                 dq offset unk_5540	rdi = buf
+.data:0000000000005138                 dq offset sub_212B	pop rsi
+.data:0000000000005140                 dq 0Ah			rsi = '\n'
+.data:0000000000005148                 dq offset strchr		rax = strchr(buf,'\n')
+.data:0000000000005150                 dq offset sub_212D	pop rdx
+.data:0000000000005158                 dq 0			rdx = 0
+.data:0000000000005160                 dq offset byte_2139+4	rax == 0 thì skip store | rax != 0 thì chạy tiếp
+.data:0000000000005168                 dq offset sub_2131	*rax =0 
+.data:0000000000005170                 dq offset nullsub_1	ret/stub
+.data:0000000000005178                 dq offset sub_212F	pop rax
+.data:0000000000005180                 dq offset unk_5560	rax = expected_ptr
+.data:0000000000005188                 dq offset sub_212D	pop rdx
+.data:0000000000005190                 dq 5CE8A297FA50CC11h	rdx = expected0
+.data:0000000000005198                 dq offset sub_2131	*(uint64_t*)unk_5560 = expected0
+.data:00000000000051A0                 dq offset sub_212F	pop rax
+.data:00000000000051A8                 dq offset unk_5540	rax = &buf[0]
+.data:00000000000051B0                 dq offset sub_212B	pop rsi
+.data:00000000000051B8                 dq 25BCCCA48C35FD54h	rsi = key0
+.data:00000000000051C0                 dq offset byte_2139	xor [rax], rsi ; ret || *(uint64_t*)buf ^= key0
+.data:00000000000051C8                 dq offset sub_212F	pop rax
+.data:00000000000051D0                 dq offset unk_5568       rax = expected_ptr+8
+.data:00000000000051D8                 dq offset sub_212D	pop rdx
+.data:00000000000051E0                 dq 6E8EEA35727Dh		rdx = expected1
+.data:00000000000051E8                 dq offset sub_2131	store => *(uint64_t*)unk_5568 = expected1
+.data:00000000000051F0                 dq offset sub_212F	pop rax
+.data:00000000000051F8                 dq offset unk_5548	rax = &buf[8]
+.data:0000000000005200                 dq offset sub_212B	pop rsi
+.data:0000000000005208                 dq 20EB9C06215Dh		rsi = key1
+.data:0000000000005210                 dq offset byte_2139	xor [rax], rsi ||  *(uint64_t*)(buf+8) ^= key1
+.data:0000000000005218                 dq offset sub_2129	pop rdi
+.data:0000000000005220                 dq offset unk_5560	rdi = expected
+.data:0000000000005228                 dq offset sub_212B	pop rsi
+.data:0000000000005230                 dq offset unk_5540	rsi - buf(đã xor)
+.data:0000000000005238                 dq offset strcmp		RAX = strcmp(expected, buf)
+.data:0000000000005240                 dq offset sub_2147	test rax, rax; jnz nullsub_1; add rsp, 0x1a0; ret || rax != 0 nhảy nullsub_1, fail; rax == 0 thì add rsp, 0x1a0, nhảy 52 qword trên stack 
+.data:0000000000005248                 dq offset sub_212F	pop rax ; ret
+.data:0000000000005250                 dq offset unk_5540	RAX = buf
+.data:0000000000005258                 dq offset sub_212B	pop rsi ; ret
+.data:0000000000005260                 dq 25BCCCA48C35FD54h	RSI = key0
+.data:0000000000005268                 dq offset byte_2139	xor qword ptr [rax], rsi ; ret ||    *(uint64_t*)buf ^= key0
+.data:0000000000005270                 dq offset sub_212F	pop rax ; ret
+.data:0000000000005278                 dq offset unk_5548	RAX = buf+8
+.data:0000000000005280                 dq offset sub_212B	pop rsi ; ret
+.data:0000000000005288                 dq 20EB9C06215Dh		RSI = key1
+.data:0000000000005290                 dq offset byte_2139	xor qword ptr [rax], rsi ; ret	|| *(uint64_t*)(buf+8) ^= key1
+.data:0000000000005298                 dq offset sub_212F	pop rax ; ret	
+.data:00000000000052A0                 dq offset unk_5560	RAX = scratch0
+.data:00000000000052A8                 dq offset sub_212D	pop rdx ; ret
+.data:00000000000052B0                 dq 61662061202C6841h	RDX = bytes("Ah, a fa")
+.data:00000000000052B8                 dq offset sub_2131	mov [rax], rdx ; ret || ghi "Ah, a fa" vào unk_5560
+.data:00000000000052C0                 dq offset sub_212F	pop rax ; ret	
+.data:00000000000052C8                 dq offset unk_5568	RAX = scratch1
+.data:00000000000052D0                 dq offset sub_212D	pop rdx ; ret
+.data:00000000000052D8                 dq 73252220666F206Eh	RDX = bytes("n of s%$")
+.data:00000000000052E0                 dq offset sub_2131	unk_5568
+.data:00000000000052E8                 dq offset sub_212F	pop rax ; ret
+.data:00000000000052F0                 dq offset unk_5570	RAX = scratch2
+.data:00000000000052F8                 dq offset sub_212D	pop rdx ; ret
+.data:0000000000005300                 dq 0A2E2E2E22h		RDX = bytes("\"...\n\0\0\0")
+.data:0000000000005308                 dq offset sub_2131	store vào unk_5570 || Lúc này unk_5560 chứa một format string (dạng kiểu "Ah, a ... %s ...\n"), và ta sẽ printf nó với đối số là input
+.data:0000000000005310                 dq offset sub_2129	pop rdi ; ret
+.data:0000000000005318                 dq offset unk_5560	RDI = fmt
+.data:0000000000005320                 dq offset sub_212B	pop rsi ; ret
+.data:0000000000005328                 dq offset unk_5540	RSI = buf (đối số thứ 2 cho printf)
+.data:0000000000005330                 dq offset sub_212F	pop rax ; ret
+.data:0000000000005338                 dq 0			RAX = 0
+.data:0000000000005340                 dq offset nullsub_1	ret/align đệm
+.data:0000000000005348                 dq offset printf		call printf(fmt, buf)
+.data:0000000000005350                 dq offset sub_2129	pop rdi ; ret
+.data:0000000000005358                 dq 1			rdi = 1
+.data:0000000000005360                 dq offset sleep		sleep(1)
+.data:0000000000005368                 dq offset sub_212F	pop rax ; ret		
+.data:0000000000005370                 dq offset unk_5560	RAX = scratch0
+.data:0000000000005378                 dq offset sub_212D	pop rdx ; ret
+.data:0000000000005380                 dq 2E657962646F6F47h	RDX = bytes("Goodbye.")
+.data:0000000000005388                 dq offset sub_2131	store vào unk_5560
+.data:0000000000005390                 dq offset sub_212F	pop rax ; ret
+.data:0000000000005398                 dq offset unk_5568	RAX = scratch1
+.data:00000000000053A0                 dq offset sub_212D	pop rdx ; ret
+.data:00000000000053A8                 dq 0Ah			RDX = "\n"
+.data:00000000000053B0                 dq offset sub_2131	store newline
+.data:00000000000053B8                 dq offset sub_2129	pop rdi ; ret
+.data:00000000000053C0                 dq offset unk_5560	RDI = fmt (string “Goodbye...\n”)
+.data:00000000000053C8                 dq offset printf		printf("Goodbye...\n")
+.data:00000000000053D0                 dq offset sub_2129	pop rdi ; ret
+.data:00000000000053D8                 dq 0			RDI = 0
+.data:00000000000053E0                 dq offset exit		exit(0)
+.data:00000000000053E8                 dq offset sub_212B	pop rsi ; ret	
+.data:00000000000053F0                 dq offset unk_5540	RSI = &buf[0]
+.data:00000000000053F8                 dq offset sub_2135	mov rsi, qword ptr [rsi] ; ret || RSI = *(uint64_t*)buf || hay chính là expected0, làm key giải mã
+.data:0000000000005400                 dq offset sub_212F	pop rax ; ret	
+.data:0000000000005408                 dq offset unk_5560	RAX = flag_buf[0]
+.data:0000000000005410                 dq offset sub_212D	pop rdx ; ret
+.data:0000000000005418                 dq 6880F6EC9C24AF73h	RDX = enc0
+.data:0000000000005420                 dq offset sub_2131	store enc0 vào unk_5560
+.data:0000000000005428                 dq offset byte_2139	xor [rax], rsi || *(uint64_t*)unk_5560 ^= key || plaintext 8 byte đầu của flag
+.data:0000000000005430                 dq offset sub_212F	pop rax
+.data:0000000000005438                 dq offset unk_5568	RAX = flag_buf[8]
+.data:0000000000005440                 dq offset sub_212D	pop rdx
+.data:0000000000005448                 dq 1FD9CCC89B0FF965h	RDX = enc1
+.data:0000000000005450                 dq offset sub_2131	ghi enc1
+.data:0000000000005458                 dq offset byte_2139	decrypt qword1
+.data:0000000000005460                 dq offset sub_212F	pop rax
+.data:0000000000005468                 dq offset unk_5570	RAX = flag_buf[16]
+.data:0000000000005470                 dq offset sub_212D	pop rdx
+.data:0000000000005478                 dq 2EDBE0DA8F1E9322h	RDX = enc2
+.data:0000000000005480                 dq offset sub_2131	store
+.data:0000000000005488                 dq offset byte_2139	decrypt qword2
+.data:0000000000005490                 dq offset sub_212F	pop rax
+.data:0000000000005498                 dq offset unk_5578	RAX = flag_buf[24]
+.data:00000000000054A0                 dq offset sub_212D	pop rdx
+.data:00000000000054A8                 dq 6Ch			RDX = 0x6C
+.data:00000000000054B0                 dq offset sub_2131	*(uint64_t*)unk_5578 = 0x6C
+.data:00000000000054B8                 dq offset sub_212B	pop rsi
+.data:00000000000054C0                 dq 11h			RSI = 0x11
+.data:00000000000054C8                 dq offset byte_2139	xor [rax], rsi	|| 0x6C ^ 0x11 = 0x7D = '}'
+.data:00000000000054D0                 dq offset sub_2129	pop rdi
+.data:00000000000054D8                 dq offset unk_5560	RDI = flag_string	
+.data:00000000000054E0                 dq offset sub_212F	pop rax
+.data:00000000000054E8                 dq 0			RAX = 0
+.data:00000000000054F0                 dq offset nullsub_1	ret/align	
+.data:00000000000054F8                 dq offset puts		puts(flag)
+.data:0000000000005500                 dq offset sub_2129	pop rdi
+.data:0000000000005508                 dq 0			rdi =0
+.data:0000000000005510                 dq offset exit		exit(0)
+.data:0000000000005510 _data           ends
+.data:0000000000005510
+</details>
+
+```python
+from struct import pack
+
+expected0 = 0x5CE8A297FA50CC11
+expected1 = 0x00006E8EEA35727D
+key0      = 0x25BCCCA48C35FD54
+key1      = 0x000020EB9C06215D
+
+enc = [0x6880F6EC9C24AF73, 0x1FD9CCC89B0FF965, 0x2EDBE0DA8F1E9322]
+last = 0x6C ^ 0x11  # '}'
+
+inp = pack("<Q", expected0 ^ key0) + pack("<Q", expected1 ^ key1)
+print("input:", inp.split(b"\0", 1)[0].decode())
+
+flag = b"".join(pack("<Q", x ^ expected0) for x in enc) + bytes([last])
+print("flag:", flag.decode())
+```
+<details>
+<summary><b>FLAG</b></summary>
+bctf{Th4t5_a_n1C3_NuMB3r}
+</details>
