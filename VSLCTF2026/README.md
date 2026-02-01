@@ -3,6 +3,8 @@
 Câu chuyện là dạo này gặp khá nhiều bài ctf dạng apk file, thế nhưng mình thấy việc static analyse mấy bài phức tạp sẽ không hiệu quả, và việc vứt nó vào Chat GPT không giúp mình nâng cấp skill nên mình quyết định học cách debug file apk để có thể trace runtime cho dễ hiểu.
 Phương pháp này đúng thì sẽ là IDA Remote Debugging Android Native (.so)
 
+`NOTE` : NẾU BẠN MUỐN XEM LUÔN CÁC BƯỚC THÌ KÉO XUỐNG PHẦN III 
+
 ## I. Dạng debug này là gì?
 Đây là dạng remote native debugging (android) bằng IDA Pro, theo mô hình client-server:
 - IDA trên PC = debugger client
