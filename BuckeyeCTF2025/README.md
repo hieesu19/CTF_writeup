@@ -973,7 +973,7 @@ Có thể sử dụng chatgpt free để hỗ trợ đoạn xem logic này.
   - nhánh true : dùng expected0 làm key, có 1 mảng QWORD enc_flag[3], chỉ cần xor từng cái với key là ra
 
 
-[Explain](/temp.py)
+[Explain](temp.py)
 
 ```python
 from struct import pack
